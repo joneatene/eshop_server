@@ -17,19 +17,39 @@ const mysqlConfig = {
 };
 
 app.get("/", async (req, res) => {
+  res.send("Your server is working");
+});
+
+app.post("/showItems", async (req, res) => {
   try {
     const con = await mysql.createConnection(mysqlConfig);
 
-    const [data] = await con.execute(`SELECT * FROM items`);
+    if (!req.body.email || !req.body.pass) {
+      const [data] = await con.execute(`SELECT * FROM items LIMIT 5`);
+      return res.send(data);
+    }
 
+    const [user] = await con.execute(
+      `SELECT * FROM users WHERE email = '${req.body.email}' LIMIT 1`
+    );
+
+    if (user.length === 0 || user[0].pass !== req.body.pass) {
+      return res
+        .status(401)
+        .send({ error: "Provided email or password is incorrect" });
+    }
+
+    const [data] = await con.execute(`SELECT * FROM items`);
     return res.send(data);
-  } catch (err) {
-    console.log(err);
-    return res.status(400).send({ error: "An error occured" });
+  } catch (e) {
+    console.log(e);
+    return res
+      .status(500)
+      .send({ error: "An unexpected error occurred. Please try again later" });
   }
 });
 
-app.post("/", async (req, res) => {
+app.post("/items", async (req, res) => {
   if (!req.body.title || !req.body.price) {
     return res.status(400).send({ error: "Incorrect data passed" });
   }
@@ -64,29 +84,6 @@ app.post("/register", async (req, res) => {
   } catch (err) {
     console.log(err);
     return res.status(400).send({ error: "An error occured" });
-  }
-});
-
-app.post("/login", async (req, res) => {
-  if (!req.body.email || !req.body.pass) {
-    return res.status(400).send({ error: "Incorrect data passed" });
-  }
-
-  try {
-    const con = await mysql.createConnection(mysqlConfig);
-
-    const [data] = await con.execute(
-      `SELECT * FROM users WHERE (email) IN ('${req.body.email}')`
-    );
-
-    if (req.body.pass === data[0].pass) {
-      res.send({ status: "OK" });
-    } else {
-      res.send({ error: "Wrong email or password" });
-    }
-  } catch (err) {
-    console.log(err);
-    res.status(400).send({ error: "An error occured" });
   }
 });
 
